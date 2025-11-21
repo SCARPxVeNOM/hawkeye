@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import IncidentForm from "@/components/incident-form"
 import IncidentList from "@/components/incident-list"
 import AnalyticsOverview from "@/components/analytics-overview"
+import { LayoutDashboard, FileText, PlusCircle, Activity, LogOut, Bell } from "lucide-react"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -20,80 +21,111 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Campus Complaint System</h1>
-            <p className="text-sm text-muted-foreground">User Dashboard</p>
+    <div className="min-h-screen bg-background font-sans">
+      {/* Header with Gradient */}
+      <header className="bg-primary text-primary-foreground shadow-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary to-secondary/30 opacity-50"></div>
+        <div className="max-w-7xl mx-auto px-6 py-6 relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
+              <Activity className="h-6 w-6 text-secondary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Campus Complaint System</h1>
+              <p className="text-sm text-primary-foreground/70">Student & Staff Portal</p>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              localStorage.clear()
-              router.push("/")
-            }}
-          >
-            Logout
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/10 rounded-full">
+              <Bell className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="secondary"
+              className="shadow-md hover:shadow-lg transition-all duration-300"
+              onClick={() => {
+                localStorage.clear()
+                router.push("/")
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Navigation */}
-      <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 flex gap-8">
-          {[
-            { id: "overview", label: "Overview" },
-            { id: "incidents", label: "My Incidents" },
-            { id: "report", label: "Report Issue" },
-            { id: "tracking", label: "Issue Tracking" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-4 px-1 border-b-2 font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-6 py-8 -mt-8 relative z-20">
+        {/* Navigation Tabs */}
+        <Card className="mb-8 p-2 shadow-md border-none bg-card/80 backdrop-blur-sm sticky top-4 z-30">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {[
+              { id: "overview", label: "Overview", icon: LayoutDashboard },
+              { id: "incidents", label: "My Incidents", icon: FileText },
+              { id: "report", label: "Report Issue", icon: PlusCircle },
+              { id: "tracking", label: "Issue Tracking", icon: Activity },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "bg-primary text-primary-foreground shadow-md transform scale-[1.02]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </Card>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Success Message Toast */}
         {successMessage && (
-          <div className="mb-4 p-3 bg-chart-3/10 border border-chart-3 text-chart-3 text-sm rounded-md">
+          <div className="mb-6 p-4 bg-secondary/10 border border-secondary/20 text-secondary-foreground rounded-xl flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-4">
+            <div className="h-2 w-2 rounded-full bg-secondary animate-pulse"></div>
             {successMessage}
           </div>
         )}
 
-        {activeTab === "overview" && <AnalyticsOverview />}
+        {/* Tab Content with Animation */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeTab === "overview" && <AnalyticsOverview />}
 
-        {activeTab === "incidents" && <IncidentList userOnly={true} />}
+          {activeTab === "incidents" && <IncidentList userOnly={true} />}
 
-        {activeTab === "report" && <IncidentForm onSuccess={handleIncidentSuccess} />}
-
-        {activeTab === "tracking" && (
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Issue Tracking</h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 border border-border rounded-md">
-                <div>
-                  <p className="font-medium text-foreground">Water Leakage - Room 201</p>
-                  <p className="text-sm text-muted-foreground">Status: In Progress</p>
-                </div>
-                <span className="px-3 py-1 bg-secondary/20 text-secondary text-sm rounded-md font-medium">
-                  In Progress
-                </span>
-              </div>
+          {activeTab === "report" && (
+            <div className="flex justify-center">
+              <IncidentForm onSuccess={handleIncidentSuccess} />
             </div>
-          </Card>
-        )}
+          )}
+
+          {activeTab === "tracking" && (
+            <Card className="p-8 shadow-lg border-none">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-foreground">Issue Tracking</h2>
+                <span className="text-sm text-muted-foreground">Real-time updates</span>
+              </div>
+              <div className="space-y-4">
+                <div className="group flex items-center justify-between p-5 bg-muted/30 border border-border rounded-xl hover:bg-muted/50 transition-all duration-300 hover:shadow-md hover:border-secondary/30 cursor-pointer">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                      💧
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-lg">Water Leakage - Room 201</p>
+                      <p className="text-sm text-muted-foreground">Updated 2 hours ago</p>
+                    </div>
+                  </div>
+                  <span className="px-4 py-1.5 bg-secondary/10 text-secondary text-sm rounded-full font-semibold border border-secondary/20">
+                    In Progress
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       </main>
     </div>
   )
