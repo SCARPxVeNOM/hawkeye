@@ -1,6 +1,7 @@
-import { getDb } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
 import { NextRequest } from "next/server"
+import { getIncidentById, updateIncident, deleteIncident } from "@/lib/services/incident.service"
+import { notifyIssueResolved, notifyTechnicianAssignment } from "@/lib/services/notification.service"
+import { createIncidentUpdate } from "@/lib/services/incident-updates.service"
 
 // GET /api/incidents/[id] - Get a specific incident
 export async function GET(
@@ -9,48 +10,21 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    
-    // Validate ObjectId format
-    if (!ObjectId.isValid(id)) {
-      return Response.json({ error: "Invalid incident ID format" }, { status: 400 })
-    }
-
-    const db = await getDb()
-    const incidentsCollection = db.collection("incidents")
-
-    const incident = await incidentsCollection.findOne({
-      _id: new ObjectId(id),
-    })
+    const incident = await getIncidentById(id)
 
     if (!incident) {
       return Response.json({ error: "Incident not found" }, { status: 404 })
     }
 
-    return Response.json({
-      id: incident._id.toString(),
-      user_id: incident.user_id,
-      title: incident.title,
-      category: incident.category,
-      description: incident.description,
-      image_url: incident.image_url,
-      location: incident.location,
-      latitude: incident.latitude,
-      longitude: incident.longitude,
-      status: incident.status,
-      priority: incident.priority,
-      assigned_to: incident.assigned_to,
-      created_at: incident.created_at instanceof Date 
-        ? incident.created_at.toISOString() 
-        : incident.created_at,
-      updated_at: incident.updated_at instanceof Date 
-        ? incident.updated_at.toISOString() 
-        : incident.updated_at,
-      resolved_at: incident.resolved_at instanceof Date 
-        ? incident.resolved_at.toISOString() 
-        : incident.resolved_at,
-    })
+    return Response.json(incident)
   } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 })
+    console.error("Error fetching incident:", error)
+    
+    if (error.message.includes("Invalid incident ID")) {
+      return Response.json({ error: error.message }, { status: 400 })
+    }
+    
+    return Response.json({ error: error.message || "Failed to fetch incident" }, { status: 500 })
   }
 }
 
@@ -61,69 +35,62 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    
-    // Validate ObjectId format
-    if (!ObjectId.isValid(id)) {
-      return Response.json({ error: "Invalid incident ID format" }, { status: 400 })
-    }
-
     const body = await request.json()
-    const db = await getDb()
-    const incidentsCollection = db.collection("incidents")
 
-    const updateData: any = {
-      updated_at: new Date(),
+    const oldIncident = await getIncidentById(id)
+    const incident = await updateIncident(id, body)
+
+    // Create incident update record
+    try {
+      const updateComment = body.status !== oldIncident?.status
+        ? `Status changed to ${body.status}`
+        : body.assigned_to && body.assigned_to !== oldIncident?.assigned_to
+        ? "Technician assigned"
+        : "Incident updated"
+
+      await createIncidentUpdate({
+        incident_id: id,
+        user_id: body.user_id || oldIncident?.user_id || "",
+        status: body.status || incident.status,
+        comment: updateComment,
+      })
+    } catch (updateError) {
+      console.error("Failed to create incident update:", updateError)
     }
 
-    if (body.status !== undefined) updateData.status = body.status
-    if (body.priority !== undefined) updateData.priority = body.priority
-    if (body.assigned_to !== undefined) updateData.assigned_to = body.assigned_to
-    if (body.title !== undefined) updateData.title = body.title
-    if (body.description !== undefined) updateData.description = body.description
-    if (body.category !== undefined) updateData.category = body.category
-
-    if (body.status === "resolved" && !body.resolved_at) {
-      updateData.resolved_at = new Date()
+    // Send notifications based on updates
+    try {
+      if (body.status === "resolved") {
+        await notifyIssueResolved(incident.user_id, id, incident.title)
+      }
+      
+      if (body.assigned_to && body.assigned_to !== oldIncident?.assigned_to) {
+        // Get technician info for notification
+        const technicianId = body.assigned_to
+        await notifyTechnicianAssignment(
+          technicianId,
+          id,
+          incident.title,
+          incident.location
+        )
+      }
+    } catch (notifError) {
+      console.error("Failed to send notification:", notifError)
+      // Don't fail the request if notification fails
     }
 
-    const result = await incidentsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
-    )
-
-    if (result.matchedCount === 0) {
-      return Response.json({ error: "Incident not found" }, { status: 404 })
-    }
-
-    const updatedIncident = await incidentsCollection.findOne({
-      _id: new ObjectId(id),
-    })
-
-    return Response.json({
-      id: updatedIncident!._id.toString(),
-      user_id: updatedIncident!.user_id,
-      title: updatedIncident!.title,
-      category: updatedIncident!.category,
-      description: updatedIncident!.description,
-      image_url: updatedIncident!.image_url,
-      location: updatedIncident!.location,
-      latitude: updatedIncident!.latitude,
-      longitude: updatedIncident!.longitude,
-      status: updatedIncident!.status,
-      priority: updatedIncident!.priority,
-      assigned_to: updatedIncident!.assigned_to,
-      created_at: updatedIncident!.created_at instanceof Date 
-        ? updatedIncident!.created_at.toISOString() 
-        : updatedIncident!.created_at,
-      updated_at: updatedIncident!.updated_at instanceof Date 
-        ? updatedIncident!.updated_at.toISOString() 
-        : updatedIncident!.updated_at,
-      resolved_at: updatedIncident!.resolved_at instanceof Date 
-        ? updatedIncident!.resolved_at.toISOString() 
-        : updatedIncident!.resolved_at,
-    })
+    return Response.json(incident)
   } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 })
+    console.error("Error updating incident:", error)
+    
+    if (error.message.includes("Invalid incident ID")) {
+      return Response.json({ error: error.message }, { status: 400 })
+    }
+    if (error.message.includes("not found")) {
+      return Response.json({ error: error.message }, { status: 404 })
+    }
+    
+    return Response.json({ error: error.message || "Failed to update incident" }, { status: 500 })
   }
 }
 
@@ -134,26 +101,20 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    
-    // Validate ObjectId format
-    if (!ObjectId.isValid(id)) {
-      return Response.json({ error: "Invalid incident ID format" }, { status: 400 })
-    }
-
-    const db = await getDb()
-    const incidentsCollection = db.collection("incidents")
-
-    const result = await incidentsCollection.deleteOne({
-      _id: new ObjectId(id),
-    })
-
-    if (result.deletedCount === 0) {
-      return Response.json({ error: "Incident not found" }, { status: 404 })
-    }
+    await deleteIncident(id)
 
     return Response.json({ message: "Incident deleted successfully" })
   } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 })
+    console.error("Error deleting incident:", error)
+    
+    if (error.message.includes("Invalid incident ID")) {
+      return Response.json({ error: error.message }, { status: 400 })
+    }
+    if (error.message.includes("not found")) {
+      return Response.json({ error: error.message }, { status: 404 })
+    }
+    
+    return Response.json({ error: error.message || "Failed to delete incident" }, { status: 500 })
   }
 }
 

@@ -25,8 +25,19 @@ interface Technician {
   max_concurrent: number
 }
 
+interface Incident {
+  id: string
+  title: string
+  category: string
+  location: string
+  status: string
+  assigned_to?: string
+}
+
 export default function TechnicianScheduler() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [selectedTechnicians, setSelectedTechnicians] = useState<Record<string, string>>({})
   const [technicians, setTechnicians] = useState<Technician[]>([
     {
       id: "1",
@@ -60,9 +71,37 @@ export default function TechnicianScheduler() {
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("technician_assignments") || "[]")
     setAssignments(stored)
+    fetchIncidents()
   }, [])
 
-  const assignTechnician = (incidentId: string, incidentTitle: string, location: string, technicianId: string) => {
+  const fetchIncidents = async () => {
+    try {
+      const response = await fetch("/api/incidents")
+      if (response.ok) {
+        const data = await response.json()
+        // If API returns empty array, try localStorage as fallback
+        if (Array.isArray(data) && data.length === 0) {
+          const stored = JSON.parse(localStorage.getItem("incidents") || "[]")
+          if (stored.length > 0) {
+            setIncidents(stored)
+            return
+          }
+        }
+        setIncidents(data)
+      } else {
+        // Fallback to localStorage
+        const stored = JSON.parse(localStorage.getItem("incidents") || "[]")
+        setIncidents(stored)
+      }
+    } catch (error) {
+      console.error("Error fetching incidents:", error)
+      // Fallback to localStorage
+      const stored = JSON.parse(localStorage.getItem("incidents") || "[]")
+      setIncidents(stored)
+    }
+  }
+
+  const assignTechnician = async (incidentId: string, incidentTitle: string, location: string, technicianId: string) => {
     const technician = technicians.find((t) => t.id === technicianId)
     if (!technician) return
 
@@ -91,12 +130,103 @@ export default function TechnicianScheduler() {
     setTechnicians(
       technicians.map((t) => (t.id === technicianId ? { ...t, current_assignments: t.current_assignments + 1 } : t)),
     )
+
+    // Update incident to mark as assigned
+    try {
+      await fetch(`/api/incidents/${incidentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          assigned_to: technicianId,
+          status: "in-progress"
+        }),
+      })
+      // Refresh incidents list
+      await fetchIncidents()
+      // Reset select dropdown
+      setSelectedTechnicians((prev) => {
+        const updated = { ...prev }
+        delete updated[incidentId]
+        return updated
+      })
+    } catch (error) {
+      console.error("Error updating incident:", error)
+      // Fallback: update local incidents state
+      const updatedIncidents = incidents.map((inc) =>
+        inc.id === incidentId
+          ? { ...inc, assigned_to: technicianId, status: "in-progress" }
+          : inc
+      )
+      setIncidents(updatedIncidents)
+      localStorage.setItem("incidents", JSON.stringify(updatedIncidents))
+      // Reset select dropdown
+      setSelectedTechnicians((prev) => {
+        const updated = { ...prev }
+        delete updated[incidentId]
+        return updated
+      })
+    }
   }
 
-  const updateAssignmentStatus = (assignmentId: string, newStatus: "scheduled" | "in-progress" | "completed") => {
+  const updateAssignmentStatus = async (assignmentId: string, newStatus: "scheduled" | "in-progress" | "completed") => {
+    const assignment = assignments.find((a) => a.id === assignmentId)
+    if (!assignment) return
+
     const updated = assignments.map((a) => (a.id === assignmentId ? { ...a, status: newStatus } : a))
     setAssignments(updated)
     localStorage.setItem("technician_assignments", JSON.stringify(updated))
+
+    // If completed, update incident status and technician assignment count
+    if (newStatus === "completed") {
+      // Update incident status to resolved
+      try {
+        await fetch(`/api/incidents/${assignment.incident_id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "resolved" }),
+        })
+        // Refresh incidents list
+        fetchIncidents()
+      } catch (error) {
+        console.error("Error updating incident status:", error)
+        // Fallback: update local incidents state
+        const updatedIncidents = incidents.map((inc) =>
+          inc.id === assignment.incident_id
+            ? { ...inc, status: "resolved" }
+            : inc
+        )
+        setIncidents(updatedIncidents)
+        localStorage.setItem("incidents", JSON.stringify(updatedIncidents))
+      }
+
+      // Update technician assignment count
+      setTechnicians(
+        technicians.map((t) =>
+          t.id === assignment.technician_id
+            ? { ...t, current_assignments: Math.max(0, t.current_assignments - 1) }
+            : t
+        )
+      )
+    } else if (newStatus === "in-progress") {
+      // Update incident status to in-progress
+      try {
+        await fetch(`/api/incidents/${assignment.incident_id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "in-progress" }),
+        })
+        fetchIncidents()
+      } catch (error) {
+        console.error("Error updating incident status:", error)
+        const updatedIncidents = incidents.map((inc) =>
+          inc.id === assignment.incident_id
+            ? { ...inc, status: "in-progress" }
+            : inc
+        )
+        setIncidents(updatedIncidents)
+        localStorage.setItem("incidents", JSON.stringify(updatedIncidents))
+      }
+    }
   }
 
   const reassignTechnician = (assignmentId: string, newTechId: string) => {
@@ -196,30 +326,46 @@ export default function TechnicianScheduler() {
         <div className="border-t border-border pt-6">
           <h3 className="font-medium text-foreground mb-4">Assign Incidents</h3>
           <div className="space-y-3">
-            <div className="p-4 border border-border rounded-md bg-muted/30">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-foreground">Water Leakage - Hostel A Room 201</p>
-                <span className="text-xs px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full">
-                  High Priority
-                </span>
+            {incidents.filter((inc) => !inc.assigned_to && (inc.status === "new" || inc.status === "pending")).length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-border rounded-md text-muted-foreground text-sm">
+                No unassigned incidents
               </div>
-              <select
-                onChange={(e) =>
-                  e.target.value && assignTechnician("inc-1", "Water Leakage - Hostel A", "Room 201", e.target.value)
-                }
-                defaultValue=""
-                className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background text-foreground focus:ring-1 focus:ring-ring outline-none"
-              >
-                <option value="">Select technician...</option>
-                {technicians
-                  .filter((t) => t.current_assignments < t.max_concurrent)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.specialization})
-                    </option>
-                  ))}
-              </select>
-            </div>
+            ) : (
+              incidents
+                .filter((inc) => !inc.assigned_to && (inc.status === "new" || inc.status === "pending"))
+                .map((incident) => (
+                  <div key={incident.id} className="p-4 border border-border rounded-md bg-muted/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{incident.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{incident.location} • {incident.category}</p>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-full">
+                        {incident.status}
+                      </span>
+                    </div>
+                    <select
+                      value={selectedTechnicians[incident.id] || ""}
+                      onChange={(e) => {
+                        setSelectedTechnicians((prev) => ({ ...prev, [incident.id]: e.target.value }))
+                        if (e.target.value) {
+                          assignTechnician(incident.id, incident.title, incident.location, e.target.value)
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background text-foreground focus:ring-1 focus:ring-ring outline-none"
+                    >
+                      <option value="">Select technician...</option>
+                      {technicians
+                        .filter((t) => t.current_assignments < t.max_concurrent)
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.specialization})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                ))
+            )}
           </div>
         </div>
       </div>

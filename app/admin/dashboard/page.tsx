@@ -22,7 +22,12 @@ import {
   ChevronRight,
   BarChart3,
   Shield,
+  Clock,
+  TrendingUp,
 } from "lucide-react"
+import TechnicianPerformanceComponent from "@/components/technician-performance"
+import AgingAnalysisComponent from "@/components/aging-analysis"
+import NotificationsDropdown from "@/components/notifications-dropdown"
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -30,9 +35,19 @@ export default function AdminDashboardPage() {
   const [incidents, setIncidents] = useState<any[]>([])
   const [predictions, setPredictions] = useState<any[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [adminUserId, setAdminUserId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchIncidents()
+    fetchPredictions()
+    
+    // Get admin user ID from localStorage (client-side only)
+    if (typeof window !== "undefined") {
+      const adminUser = JSON.parse(localStorage.getItem("adminUser") || "{}")
+      if (adminUser.id) {
+        setAdminUserId(adminUser.id)
+      }
+    }
   }, [])
 
   const fetchIncidents = async () => {
@@ -40,44 +55,45 @@ export default function AdminDashboardPage() {
       const response = await fetch("/api/incidents")
       if (response.ok) {
         const data = await response.json()
+        // If API returns empty array, try localStorage as fallback
+        if (Array.isArray(data) && data.length === 0) {
+          const stored = JSON.parse(localStorage.getItem("incidents") || "[]")
+          if (stored.length > 0) {
+            setIncidents(stored)
+            await fetchPredictions()
+            return
+          }
+        }
         setIncidents(data)
-        const predictionData = generatePredictions(data)
-        setPredictions(predictionData)
+        await fetchPredictions()
       } else {
         console.error("Failed to fetch incidents")
         // Fallback to localStorage for backward compatibility
         const stored = JSON.parse(localStorage.getItem("incidents") || "[]")
         setIncidents(stored)
-        const predictionData = generatePredictions(stored)
-        setPredictions(predictionData)
       }
     } catch (error) {
       console.error("Error fetching incidents:", error)
       // Fallback to localStorage
       const stored = JSON.parse(localStorage.getItem("incidents") || "[]")
       setIncidents(stored)
-      const predictionData = generatePredictions(stored)
-      setPredictions(predictionData)
     }
   }
 
-  const generatePredictions = (incidentData: any[]) => {
-    const locationMap: Record<string, number> = {}
-    const categoryMap: Record<string, number> = {}
-
-    incidentData.forEach((inc: any) => {
-      locationMap[inc.location] = (locationMap[inc.location] || 0) + 1
-      categoryMap[inc.category] = (categoryMap[inc.category] || 0) + 1
-    })
-
-    return Object.entries(locationMap)
-      .slice(0, 5)
-      .map(([location, count]) => ({
-        location,
-        category: Object.entries(categoryMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "general",
-        confidence: Math.min(50 + count * 10, 95),
-        message: `High chance of ${count > 3 ? "recurring" : "potential"} issues based on history`,
-      }))
+  const fetchPredictions = async () => {
+    try {
+      const response = await fetch("/api/predictions")
+      if (response.ok) {
+        const data = await response.json()
+        setPredictions(data)
+      } else {
+        console.error("Failed to fetch predictions")
+        setPredictions([])
+      }
+    } catch (error) {
+      console.error("Error fetching predictions:", error)
+      setPredictions([])
+    }
   }
 
   const handleLogout = () => {
@@ -120,6 +136,8 @@ export default function AdminDashboardPage() {
     { id: "incidents", label: "Incidents", icon: AlertCircle },
     { id: "scheduling", label: "Scheduling", icon: Calendar },
     { id: "sla", label: "SLA Monitor", icon: Activity },
+    { id: "aging", label: "Aging Analysis", icon: Clock },
+    { id: "performance", label: "Technician Performance", icon: TrendingUp },
     { id: "heatmap", label: "Heatmap", icon: Map },
     { id: "predictions", label: "Predictions", icon: BarChart3 },
     { id: "users", label: "User Management", icon: Users },
@@ -204,9 +222,13 @@ export default function AdminDashboardPage() {
                 className="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-4 text-sm outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <Bell className="h-5 w-5" />
-            </Button>
+            {adminUserId ? (
+              <NotificationsDropdown userId={adminUserId} />
+            ) : (
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                <Bell className="h-5 w-5" />
+              </Button>
+            )}
             <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-teal-500 flex items-center justify-center text-xs font-bold text-white">
               AD
             </div>
@@ -270,6 +292,10 @@ export default function AdminDashboardPage() {
             {activeTab === "scheduling" && <TechnicianScheduler />}
 
             {activeTab === "sla" && <SLAMonitor />}
+
+            {activeTab === "aging" && <AgingAnalysisComponent />}
+
+            {activeTab === "performance" && <TechnicianPerformanceComponent />}
 
             {activeTab === "heatmap" && (
               <Card>

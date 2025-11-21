@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { MapPin, Calendar, ArrowRight, FileText } from "lucide-react"
 import IncidentDetailModal from "@/components/incident-detail-modal"
+import IncidentUpdates from "@/components/incident-updates"
 
 interface Incident {
   id: string
@@ -18,9 +19,10 @@ interface Incident {
 
 interface IncidentListProps {
   userOnly?: boolean
+  showUpdates?: boolean
 }
 
-export default function IncidentList({ userOnly = false }: IncidentListProps) {
+export default function IncidentList({ userOnly = false, showUpdates = false }: IncidentListProps) {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [filter, setFilter] = useState("all")
   const [loading, setLoading] = useState(true)
@@ -214,6 +216,12 @@ export default function IncidentList({ userOnly = false }: IncidentListProps) {
           setSelectedIncidentId(null)
         }}
       />
+
+      {showUpdates && selectedIncidentId && (
+        <div className="mt-6">
+          <IncidentUpdates incidentId={selectedIncidentId} />
+        </div>
+      )}
     </Card>
   )
 }

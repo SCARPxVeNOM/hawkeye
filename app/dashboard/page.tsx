@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
@@ -8,11 +8,23 @@ import IncidentForm from "@/components/incident-form"
 import IncidentList from "@/components/incident-list"
 import AnalyticsOverview from "@/components/analytics-overview"
 import { LayoutDashboard, FileText, PlusCircle, Activity, LogOut, Bell } from "lucide-react"
+import NotificationsDropdown from "@/components/notifications-dropdown"
 
 export default function DashboardPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
   const [successMessage, setSuccessMessage] = useState("")
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Get user ID from localStorage (client-side only)
+    if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}")
+      if (userData.id) {
+        setUserId(userData.id)
+      }
+    }
+  }, [])
 
   const handleIncidentSuccess = () => {
     setSuccessMessage("Incident reported successfully!")
@@ -36,9 +48,13 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/10 rounded-full">
-              <Bell className="h-5 w-5" />
-            </Button>
+            {userId ? (
+              <NotificationsDropdown userId={userId} />
+            ) : (
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/10 rounded-full">
+                <Bell className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="secondary"
               className="shadow-md hover:shadow-lg transition-all duration-300"
@@ -107,22 +123,7 @@ export default function DashboardPage() {
                 <h2 className="text-2xl font-bold text-foreground">Issue Tracking</h2>
                 <span className="text-sm text-muted-foreground">Real-time updates</span>
               </div>
-              <div className="space-y-4">
-                <div className="group flex items-center justify-between p-5 bg-muted/30 border border-border rounded-xl hover:bg-muted/50 transition-all duration-300 hover:shadow-md hover:border-secondary/30 cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                      💧
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground text-lg">Water Leakage - Room 201</p>
-                      <p className="text-sm text-muted-foreground">Updated 2 hours ago</p>
-                    </div>
-                  </div>
-                  <span className="px-4 py-1.5 bg-secondary/10 text-secondary text-sm rounded-full font-semibold border border-secondary/20">
-                    In Progress
-                  </span>
-                </div>
-              </div>
+              <IncidentList userOnly={true} showUpdates={true} />
             </Card>
           )}
         </div>

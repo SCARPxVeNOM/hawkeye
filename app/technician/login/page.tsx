@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Shield } from "lucide-react"
+import { Wrench } from "lucide-react"
 
-export default function AdminLoginPage() {
+export default function TechnicianLoginPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
     email: "",
@@ -31,7 +30,7 @@ export default function AdminLoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch("/api/auth/admin/login", {
+      const response = await fetch("/api/auth/technician/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -43,9 +42,9 @@ export default function AdminLoginPage() {
       }
 
       const userData = await response.json()
-      localStorage.setItem("adminToken", "true")
-      localStorage.setItem("adminUser", JSON.stringify(userData))
-      router.push("/admin/dashboard")
+      localStorage.setItem("technicianToken", "true")
+      localStorage.setItem("technicianUser", JSON.stringify(userData))
+      router.push("/technician/dashboard")
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -58,12 +57,14 @@ export default function AdminLoginPage() {
       <Card className="w-full max-w-md border-border bg-card shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-full bg-secondary/10 flex items-center justify-center">
-              <Shield className="h-6 w-6 text-secondary" />
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Wrench className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-primary">Admin Access</CardTitle>
-          <CardDescription>Enter your credentials to access the dashboard</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight text-primary">
+            Technician Login
+          </CardTitle>
+          <CardDescription>Access your technician dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,8 +82,8 @@ export default function AdminLoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="bg-background border-input focus:border-secondary focus:ring-secondary"
-                placeholder="admin@campus.com"
+                className="bg-background border-input focus:border-primary focus:ring-primary"
+                placeholder="technician@campus.com"
               />
             </div>
 
@@ -94,7 +95,7 @@ export default function AdminLoginPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="bg-background border-input focus:border-secondary focus:ring-secondary"
+                className="bg-background border-input focus:border-primary focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>
@@ -104,7 +105,7 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/20"
             >
-              {loading ? "Authenticating..." : "Sign In"}
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 
@@ -122,3 +123,4 @@ export default function AdminLoginPage() {
     </div>
   )
 }
+

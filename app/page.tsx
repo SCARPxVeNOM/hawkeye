@@ -30,16 +30,26 @@ export default function Home() {
             </Button>
           </div>
 
-          <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center">Admin Login</p>
-            <Button
-              onClick={() => router.push("/admin/login")}
-              variant="ghost"
-              className="w-full mt-2 text-secondary"
-              size="sm"
-            >
-              Admin Access
-            </Button>
+          <div className="pt-4 border-t border-border space-y-2">
+            <p className="text-xs text-muted-foreground text-center">Staff Access</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={() => router.push("/admin/login")}
+                variant="ghost"
+                className="w-full text-secondary"
+                size="sm"
+              >
+                Admin
+              </Button>
+              <Button
+                onClick={() => router.push("/technician/login")}
+                variant="ghost"
+                className="w-full text-secondary"
+                size="sm"
+              >
+                Technician
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

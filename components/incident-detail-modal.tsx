@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { X, MapPin, Calendar, User, AlertCircle, Image as ImageIcon } from "lucide-react"
+import IncidentUpdates from "@/components/incident-updates"
 
 interface Incident {
   id: string
@@ -216,6 +217,11 @@ export default function IncidentDetailModal({ incidentId, isOpen, onClose }: Inc
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Incident Updates */}
+              <div className="pt-6 border-t">
+                <IncidentUpdates incidentId={incident.id!} />
               </div>
             </>
           ) : null}

@@ -96,6 +96,11 @@ async function initializeCollections(db: Db) {
       await db.collection('notifications').createIndex({ read: 1 })
       await db.collection('notifications').createIndex({ created_at: -1 })
     }
+
+    if (!collectionNames.includes('rate_limits')) {
+      await db.collection('rate_limits').createIndex({ user_id: 1, window_start: 1 })
+      await db.collection('rate_limits').createIndex({ window_end: 1 }, { expireAfterSeconds: 86400 }) // TTL index
+    }
   } catch (error) {
     // Silently fail - collections might already exist with indexes
     console.error('Error initializing collections:', error)
