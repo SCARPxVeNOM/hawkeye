@@ -13,12 +13,14 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const category = searchParams.get("category")
     const assignedTo = searchParams.get("assignedTo")
+    const limit = searchParams.get("limit")
 
     const incidents = await getIncidents({
       userId: userId || undefined,
       status: status || undefined,
       category: category || undefined,
       assignedTo: assignedTo || undefined,
+      limit: limit ? parseInt(limit) : undefined,
     })
 
     return Response.json(incidents)

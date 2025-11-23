@@ -23,6 +23,11 @@ export interface Incident {
   created_at: Date | string
   updated_at: Date | string
   resolved_at?: Date | string | null
+  sla_deadline?: Date | string | null
+  sla_started_at?: Date | string | null
+  completion_image?: string | null
+  completed_by?: string | null
+  completed_at?: Date | string | null
 }
 
 export interface IncidentFilters {
@@ -30,6 +35,7 @@ export interface IncidentFilters {
   status?: string
   category?: string
   assignedTo?: string
+  limit?: number
 }
 
 export interface CreateIncidentData {
@@ -50,6 +56,10 @@ export interface UpdateIncidentData {
   title?: string
   description?: string
   category?: string
+  completion_image?: string | null
+  resolved_at?: Date | string | null
+  completed_by?: string | null
+  completed_at?: Date | string | null
 }
 
 /**
@@ -91,6 +101,21 @@ function formatIncident(incident: any): Incident {
     resolved_at: incident.resolved_at instanceof Date 
       ? incident.resolved_at.toISOString() 
       : incident.resolved_at || null,
+    sla_deadline: incident.sla_deadline instanceof Date 
+      ? incident.sla_deadline.toISOString() 
+      : incident.sla_deadline || null,
+    sla_started_at: incident.sla_started_at instanceof Date 
+      ? incident.sla_started_at.toISOString() 
+      : incident.sla_started_at || null,
+    completion_image: incident.completion_image || null,
+    completed_by: incident.completed_by 
+      ? (typeof incident.completed_by === 'object' && incident.completed_by.toString 
+          ? incident.completed_by.toString() 
+          : String(incident.completed_by))
+      : incident.completed_by || null,
+    completed_at: incident.completed_at instanceof Date 
+      ? incident.completed_at.toISOString() 
+      : incident.completed_at || null,
   }
 }
 
@@ -113,13 +138,21 @@ export async function getIncidents(filters: IncidentFilters = {}): Promise<Incid
       query.category = filters.category
     }
     if (filters.assignedTo) {
-      query.assigned_to = filters.assignedTo
+      // Handle both string and ObjectId formats for assigned_to
+      if (ObjectId.isValid(filters.assignedTo)) {
+        query.assigned_to = new ObjectId(filters.assignedTo)
+      } else {
+        query.assigned_to = filters.assignedTo
+      }
     }
 
-    const incidents = await incidentsCollection
-      .find(query)
-      .sort({ created_at: -1 })
-      .toArray()
+    let cursor = incidentsCollection.find(query).sort({ created_at: -1 })
+    
+    if (filters.limit) {
+      cursor = cursor.limit(filters.limit)
+    }
+
+    const incidents = await cursor.toArray()
 
     return incidents.map(formatIncident)
   } catch (error) {
@@ -182,16 +215,18 @@ export async function checkDuplicateIncident(
 /**
  * Create a new incident
  */
-export async function createIncident(data: CreateIncidentData): Promise<Incident> {
+export async function createIncident(data: CreateIncidentData, skipDuplicateCheck: boolean = false): Promise<Incident> {
   // Validate required fields
   if (!data.user_id || !data.title || !data.category || !data.description || !data.location) {
     throw new Error("Missing required fields")
   }
 
-  // Check for duplicates
-  const isDuplicate = await checkDuplicateIncident(data.category, data.location)
-  if (isDuplicate) {
-    throw new Error("An incident for this category and location already exists today")
+  // Check for duplicates (skip for critical alerts)
+  if (!skipDuplicateCheck) {
+    const isDuplicate = await checkDuplicateIncident(data.category, data.location)
+    if (isDuplicate) {
+      throw new Error("An incident for this category and location already exists today")
+    }
   }
 
   // Auto-detect priority
@@ -245,14 +280,27 @@ export async function updateIncident(
 
   if (data.status !== undefined) updateData.status = data.status
   if (data.priority !== undefined) updateData.priority = data.priority
-  if (data.assigned_to !== undefined) updateData.assigned_to = data.assigned_to
+  if (data.assigned_to !== undefined) updateData.assigned_to = data.assigned_to ? new ObjectId(data.assigned_to) : null
   if (data.title !== undefined) updateData.title = data.title
   if (data.description !== undefined) updateData.description = data.description
   if (data.category !== undefined) updateData.category = data.category
+  if (data.completion_image !== undefined) updateData.completion_image = data.completion_image
+  if (data.completed_by !== undefined) updateData.completed_by = data.completed_by ? new ObjectId(data.completed_by) : null
+  if (data.completed_at !== undefined) {
+    updateData.completed_at = data.completed_at instanceof Date 
+      ? data.completed_at 
+      : data.completed_at ? new Date(data.completed_at) : null
+  }
 
   // Auto-set resolved_at when status changes to resolved
-  if (data.status === "resolved" && !data.resolved_at) {
-    updateData.resolved_at = new Date()
+  if (data.status === "resolved") {
+    if (data.resolved_at) {
+      updateData.resolved_at = data.resolved_at instanceof Date 
+        ? data.resolved_at 
+        : new Date(data.resolved_at)
+    } else {
+      updateData.resolved_at = new Date()
+    }
   }
 
   const result = await incidentsCollection.updateOne(

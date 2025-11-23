@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server"
 import { updateScheduleStatus, getScheduleById } from "@/lib/services/technician.service"
 import { updateIncident, getIncidentById } from "@/lib/services/incident.service"
-import { notifyIssueResolved } from "@/lib/services/notification.service"
+import { notifyIssueResolved, createNotification } from "@/lib/services/notification.service"
+import { getDb } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 // PATCH /api/technicians/assignments/[id] - Update assignment status
 export async function PATCH(
@@ -11,7 +13,7 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const { status } = body
+    const { status, completion_image, incident_id } = body
 
     if (!status || !["scheduled", "in-progress", "completed", "cancelled"].includes(status)) {
       return Response.json({ error: "Invalid status" }, { status: 400 })
@@ -45,13 +47,64 @@ export async function PATCH(
       await updateScheduleStatus(id, status as any)
     }
 
-    // Send notification when assignment is completed
+    // Handle completion with image upload
     if (status === "completed" && incident) {
+      const updateData: any = {
+        status: "resolved",
+        resolved_at: new Date(),
+        completion_image: completion_image || null,
+      }
+
+      // Get technician ID from request (from technician dashboard)
+      // Try to extract from assignment or use a default
+      let technicianId: string | null = null
+      if (id.startsWith("direct-")) {
+        // For direct assignments, get from incident
+        technicianId = incident.assigned_to || null
+      } else {
+        const schedule = await getScheduleById(id)
+        if (schedule) {
+          technicianId = schedule.technician_id
+        }
+      }
+
+      if (technicianId) {
+        updateData.completed_by = technicianId
+        updateData.completed_at = new Date()
+      }
+
+      // Update incident with completion details
+      await updateIncident(incidentId!, updateData)
+
+      // Notify user that issue is resolved
       try {
         await notifyIssueResolved(incident.user_id, incidentId!, incident.title)
       } catch (notifError) {
-        console.error("Failed to send completion notification:", notifError)
-        // Don't fail the request if notification fails
+        console.error("Failed to send completion notification to user:", notifError)
+      }
+
+      // Notify all admins about completion
+      try {
+        const db = await getDb()
+        const usersCollection = db.collection("users")
+        const admins = await usersCollection.find({ role: "admin" }).toArray()
+
+        for (const admin of admins) {
+          await createNotification({
+            user_id: admin._id.toString(),
+            type: "task_completed",
+            message: `Task "${incident.title}" has been completed by technician. ${completion_image ? "Completion image uploaded." : ""}`,
+            metadata: {
+              incident_id: incidentId,
+              incident_title: incident.title,
+              location: incident.location,
+              completion_image: completion_image || null,
+              completed_by: technicianId,
+            },
+          })
+        }
+      } catch (adminNotifError) {
+        console.error("Failed to send completion notification to admins:", adminNotifError)
       }
     }
 

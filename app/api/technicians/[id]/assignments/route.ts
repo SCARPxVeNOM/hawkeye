@@ -19,6 +19,8 @@ export async function GET(
     // Also get incidents directly assigned to this technician (via assigned_to field)
     const assignedIncidents = await getIncidents({ assignedTo: id })
     
+    console.log(`Technician ${id}: Found ${schedules.length} schedules and ${assignedIncidents.length} direct assignments`)
+    
     // Create a map to track which incidents already have schedules
     const scheduledIncidentIds = new Set(schedules.map(s => s.incident_id))
     
@@ -45,9 +47,24 @@ export async function GET(
     
     // Convert assigned incidents (without schedules) to assignment format
     const directAssignments = assignedIncidents
+      .filter(incident => {
+        // Include all assigned incidents, even if they have a schedule (schedule might be outdated)
+        // But prefer schedule data if it exists
+        return true
+      })
       .filter(incident => !scheduledIncidentIds.has(incident.id!))
       .map(incident => {
         const priorityNum = incident.priority || 3
+        // Determine status: if incident is resolved, mark as completed; otherwise use incident status
+        let assignmentStatus = "scheduled"
+        if (incident.status === "resolved" || incident.status === "closed") {
+          assignmentStatus = "completed"
+        } else if (incident.status === "in-progress" || incident.status === "in_progress") {
+          assignmentStatus = "in-progress"
+        } else {
+          assignmentStatus = "scheduled"
+        }
+        
         return {
           id: `direct-${incident.id}`, // Use a prefix to distinguish from schedule IDs
           incident_id: incident.id!,
@@ -58,14 +75,19 @@ export async function GET(
           priority: priorityNum,
           priority_label: getPriorityLabel(priorityNum),
           created_at: incident.created_at || new Date().toISOString(),
-          scheduled_time: new Date().toISOString(), // Use current time if no schedule
-          status: incident.status === "resolved" ? "completed" : 
-                  incident.status === "in-progress" ? "in-progress" : "scheduled",
+          scheduled_time: incident.sla_started_at 
+            ? (typeof incident.sla_started_at === 'string' 
+                ? incident.sla_started_at 
+                : new Date(incident.sla_started_at).toISOString())
+            : new Date().toISOString(), // Use SLA start time or current time
+          status: assignmentStatus,
         }
       })
     
     // Combine both types of assignments
     const allAssignments = [...scheduleAssignments, ...directAssignments]
+    
+    console.log(`Technician ${id}: Returning ${allAssignments.length} total assignments`)
     
     // Sort by scheduled_time
     allAssignments.sort((a, b) => 

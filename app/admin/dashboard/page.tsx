@@ -24,10 +24,20 @@ import {
   Shield,
   Clock,
   TrendingUp,
+  MoreVertical,
+  Edit,
+  Trash2,
+  UserCog,
+  Ban,
+  CheckCircle2,
+  Mail,
 } from "lucide-react"
 import TechnicianPerformanceComponent from "@/components/technician-performance"
 import AgingAnalysisComponent from "@/components/aging-analysis"
 import NotificationsDropdown from "@/components/notifications-dropdown"
+import HeatmapComponent from "@/components/heatmap"
+import PredictiveAlerts from "@/components/predictive-alerts"
+import CompletedTasks from "@/components/completed-tasks"
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -254,6 +264,7 @@ export default function AdminDashboardPage() {
             {activeTab === "overview" && (
               <div className="space-y-6">
                 <AnalyticsOverview />
+                <CompletedTasks />
               </div>
             )}
 
@@ -310,89 +321,9 @@ export default function AdminDashboardPage() {
 
             {activeTab === "performance" && <TechnicianPerformanceComponent />}
 
-            {activeTab === "heatmap" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Location Heatmap</CardTitle>
-                  <CardDescription>High-density issue zones across campus.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-muted/30 rounded-lg p-8 border border-border">
-                    <div className="grid grid-cols-4 gap-4 mb-6">
-                      {[...Array(16)].map((_, i) => {
-                        const opacity = Math.random() * 0.8 + 0.1
-                        return (
-                          <div
-                            key={i}
-                            className="aspect-square rounded-md border border-border/50 flex items-center justify-center text-xs font-medium transition-all hover:scale-105 cursor-pointer relative overflow-hidden group"
-                            style={{
-                              backgroundColor: `rgba(59, 130, 246, ${opacity})`, // Blue based heatmap
-                            }}
-                          >
-                            <span className="relative z-10 text-white drop-shadow-md">
-                              Block {String.fromCharCode(65 + i)}
-                            </span>
-                            <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded bg-blue-500/20 border border-blue-500/50"></div>
-                        <span>Low Activity</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded bg-blue-500 border border-blue-400"></div>
-                        <span>High Activity</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {activeTab === "heatmap" && <HeatmapComponent />}
 
-            {activeTab === "predictions" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Predictive Alerts</CardTitle>
-                  <CardDescription>AI-driven insights on potential future incidents.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {predictions.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">
-                        No patterns detected yet. More data needed.
-                      </p>
-                    ) : (
-                      predictions.map((pred, i) => (
-                        <div
-                          key={i}
-                          className="p-4 border border-border rounded-lg bg-card hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-foreground">{pred.location}</span>
-                                <span className="text-xs text-muted-foreground">• {pred.category}</span>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{pred.message}</p>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-sm font-bold text-blue-500">{pred.confidence}%</span>
-                              <span className="text-xs text-muted-foreground">Confidence</span>
-                            </div>
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                            <div className="bg-blue-500 h-full rounded-full" style={{ width: `${pred.confidence}%` }} />
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {activeTab === "predictions" && <PredictiveAlerts />}
 
             {activeTab === "users" && (
               <Card>
@@ -438,23 +369,7 @@ export default function AdminDashboardPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="h-4 w-4"
-                                >
-                                  <circle cx="12" cy="12" r="1" />
-                                  <circle cx="12" cy="5" r="1" />
-                                  <circle cx="12" cy="19" r="1" />
-                                </svg>
-                              </Button>
+                              <UserActionsMenu user={user} />
                             </td>
                           </tr>
                         ))}
@@ -507,6 +422,135 @@ export default function AdminDashboardPage() {
           </div>
         </main>
       </div>
+    </div>
+  )
+}
+
+// User Actions Menu Component
+function UserActionsMenu({ user }: { user: { name: string; email: string; role: string; status: string } }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleEdit = () => {
+    setIsOpen(false)
+    // TODO: Implement edit user functionality
+    alert(`Edit user: ${user.name}`)
+  }
+
+  const handleChangeRole = () => {
+    setIsOpen(false)
+    // TODO: Implement change role functionality
+    alert(`Change role for: ${user.name}`)
+  }
+
+  const handleToggleStatus = () => {
+    setIsOpen(false)
+    // TODO: Implement toggle status functionality
+    const newStatus = user.status === "Active" ? "Inactive" : "Active"
+    alert(`Change status for ${user.name} to ${newStatus}`)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+      return
+    }
+    
+    setIsOpen(false)
+    setIsDeleting(true)
+    
+    try {
+      // TODO: Implement delete user API call
+      // await fetch(`/api/users/${user.email}`, { method: "DELETE" })
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      alert(`User ${user.name} has been deleted`)
+      // Refresh the page or update the user list
+      window.location.reload()
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      alert("Failed to delete user. Please try again.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleSendEmail = () => {
+    setIsOpen(false)
+    window.location.href = `mailto:${user.email}`
+  }
+
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={isDeleting}
+      >
+        <span className="sr-only">Open menu</span>
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[100]"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-0 top-full mt-1 z-[101]">
+            <Card className="w-48 shadow-xl border border-border bg-background">
+              <div className="p-1">
+                <button
+                  onClick={handleEdit}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit User
+                </button>
+                <button
+                  onClick={handleChangeRole}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                >
+                  <UserCog className="h-4 w-4" />
+                  Change Role
+                </button>
+                <button
+                  onClick={handleToggleStatus}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                >
+                  {user.status === "Active" ? (
+                    <>
+                      <Ban className="h-4 w-4" />
+                      Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Activate
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                >
+                  <Mail className="h-4 w-4" />
+                  Send Email
+                </button>
+                <div className="border-t border-border my-1" />
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {isDeleting ? "Deleting..." : "Delete User"}
+                </button>
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   )
 }

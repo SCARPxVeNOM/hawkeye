@@ -13,6 +13,7 @@ interface Assignment {
   scheduled_time: string
   duration_minutes: number
   status: "scheduled" | "in-progress" | "completed"
+  sla_deadline?: string | null
 }
 
 interface Technician {
@@ -41,11 +42,40 @@ export default function TechnicianScheduler() {
   const [technicians, setTechnicians] = useState<Technician[]>([])
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("technician_assignments") || "[]")
-    setAssignments(stored)
+    fetchAssignments()
     fetchIncidents()
     fetchTechnicians()
+    
+    // Auto-refresh assignments every 10 seconds
+    const interval = setInterval(() => {
+      fetchAssignments()
+      fetchIncidents()
+      fetchTechnicians()
+    }, 10000)
+    
+    return () => clearInterval(interval)
   }, [])
+  
+  const fetchAssignments = async () => {
+    try {
+      const response = await fetch("/api/technicians/assignments")
+      if (response.ok) {
+        const data = await response.json()
+        setAssignments(data)
+        // Also update localStorage as backup
+        localStorage.setItem("technician_assignments", JSON.stringify(data))
+      } else {
+        // Fallback to localStorage
+        const stored = JSON.parse(localStorage.getItem("technician_assignments") || "[]")
+        setAssignments(stored)
+      }
+    } catch (error) {
+      console.error("Error fetching assignments:", error)
+      // Fallback to localStorage
+      const stored = JSON.parse(localStorage.getItem("technician_assignments") || "[]")
+      setAssignments(stored)
+    }
+  }
 
   const fetchTechnicians = async () => {
     try {
@@ -298,9 +328,20 @@ export default function TechnicianScheduler() {
                           <option value="completed">Completed</option>
                         </select>
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        Scheduled: {new Date(assignment.scheduled_time).toLocaleTimeString()}
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                          Scheduled: {new Date(assignment.scheduled_time).toLocaleTimeString()}
+                        </span>
+                        {assignment.sla_deadline && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 text-red-500">
+                              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                              SLA: {new Date(assignment.sla_deadline).toLocaleTimeString()}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))

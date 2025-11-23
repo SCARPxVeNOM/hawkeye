@@ -16,6 +16,7 @@ import {
   Bell,
 } from "lucide-react"
 import NotificationsDropdown from "@/components/notifications-dropdown"
+import TechnicianCompletionDialog from "@/components/technician-completion-dialog"
 
 interface Assignment {
   id: string
@@ -36,6 +37,12 @@ export default function TechnicianDashboardPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [completionDialog, setCompletionDialog] = useState<{
+    isOpen: boolean
+    assignmentId: string
+    incidentId: string
+    incidentTitle: string
+  } | null>(null)
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("technicianUser") || "{}")
@@ -45,6 +52,13 @@ export default function TechnicianDashboardPage() {
     }
     setUser(userData)
     fetchAssignments(userData.id)
+    
+    // Auto-refresh assignments every 10 seconds
+    const interval = setInterval(() => {
+      fetchAssignments(userData.id)
+    }, 10000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchAssignments = async (technicianId: string) => {
@@ -53,7 +67,11 @@ export default function TechnicianDashboardPage() {
       const response = await fetch(`/api/technicians/${technicianId}/assignments`)
       if (response.ok) {
         const data = await response.json()
-        setAssignments(data)
+        console.log("Fetched assignments:", data)
+        setAssignments(data || [])
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error fetching assignments:", response.status, errorData)
       }
     } catch (error) {
       console.error("Error fetching assignments:", error)
@@ -230,9 +248,18 @@ export default function TechnicianDashboardPage() {
                         {assignment.status === "in-progress" && (
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => updateAssignmentStatus(assignment.id, "completed")}
+                            variant="default"
+                            onClick={() => {
+                              setCompletionDialog({
+                                isOpen: true,
+                                assignmentId: assignment.id,
+                                incidentId: assignment.incident_id,
+                                incidentTitle: assignment.incident_title,
+                              })
+                            }}
+                            className="bg-green-600 hover:bg-green-700 text-white"
                           >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
                             Complete
                           </Button>
                         )}
@@ -273,6 +300,21 @@ export default function TechnicianDashboardPage() {
           </Card>
         )}
       </main>
+
+      {/* Completion Dialog */}
+      {completionDialog && (
+        <TechnicianCompletionDialog
+          isOpen={completionDialog.isOpen}
+          onClose={() => setCompletionDialog(null)}
+          assignmentId={completionDialog.assignmentId}
+          incidentId={completionDialog.incidentId}
+          incidentTitle={completionDialog.incidentTitle}
+          onComplete={() => {
+            fetchAssignments(user.id)
+            setCompletionDialog(null)
+          }}
+        />
+      )}
     </div>
   )
 }

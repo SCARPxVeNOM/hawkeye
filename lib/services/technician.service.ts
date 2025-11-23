@@ -316,25 +316,58 @@ async function updateTechnicianAssignmentCount(
 /**
  * Find available technicians for an incident
  */
+// Map category to specialization
+const CATEGORY_TO_SPECIALIZATION: Record<string, string[]> = {
+  electricity: ["Electrical"],
+  water: ["Plumbing"],
+  it: ["IT"],
+  hostel: ["General", "HVAC"],
+  garbage: ["General"],
+}
+
 export async function findAvailableTechnicians(
   category: string,
   scheduledTime?: Date
 ): Promise<Technician[]> {
   const technicians = await getTechnicians()
+  
+  // Get matching specializations for category
+  const matchingSpecializations = CATEGORY_TO_SPECIALIZATION[category.toLowerCase()] || ["General"]
 
-  // Filter by availability and capacity
+  // Filter by specialization, availability and capacity
   const available = technicians.filter(
-    (tech) =>
-      tech.active &&
-      tech.available &&
-      tech.current_assignments < tech.max_concurrent
+    (tech) => {
+      const techSpecialization = tech.specialization?.toLowerCase() || "general"
+      const matchesSpecialization = matchingSpecializations.some(
+        spec => spec.toLowerCase() === techSpecialization
+      )
+      
+      return (
+        matchesSpecialization &&
+        tech.active &&
+        tech.available &&
+        tech.current_assignments < tech.max_concurrent
+      )
+    }
   )
+
+  // If no exact match, fall back to any available technician
+  const fallback = available.length === 0 
+    ? technicians.filter(
+        (tech) =>
+          tech.active &&
+          tech.available &&
+          tech.current_assignments < tech.max_concurrent
+      )
+    : []
+
+  const candidates = available.length > 0 ? available : fallback
 
   // If scheduled time provided, check for overlaps
   if (scheduledTime) {
     const availableWithoutOverlaps: Technician[] = []
     
-    for (const tech of available) {
+    for (const tech of candidates) {
       const hasOverlap = await hasOverlappingSchedule(
         tech.id,
         scheduledTime,
@@ -349,7 +382,7 @@ export async function findAvailableTechnicians(
     return availableWithoutOverlaps
   }
 
-  return available
+  return candidates
 }
 
 /**

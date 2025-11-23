@@ -30,10 +30,17 @@ export {
   generateFrequencyBasedPredictions,
   generateRuleBasedPredictions,
   generateAndSavePredictions,
+  generateMLPredictions,
+  getMLPrediction,
   getPredictions,
   savePrediction,
-  type Prediction,
-  type PredictionResult,
+} from "./prediction.service"
+
+export type {
+  Prediction,
+  PredictionResult,
+  BentoCloudPredictionRequest,
+  BentoCloudPredictionResponse,
 } from "./prediction.service"
 
 // Notification Service

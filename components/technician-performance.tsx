@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { CheckCircle2, Clock, AlertTriangle, TrendingUp, Star } from "lucide-react"
+import { CheckCircle2, Clock, AlertTriangle, TrendingUp, Star, MapPin, Calendar, ChevronDown, ChevronUp } from "lucide-react"
 
 interface TechnicianPerformance {
   technician_id: string
@@ -23,13 +23,34 @@ interface TechnicianPerformance {
   }
 }
 
+interface Assignment {
+  id: string
+  incident_id: string
+  incident_title: string
+  location: string
+  category: string
+  status: string
+  scheduled_time: string
+  priority: number
+  priority_label: string
+}
+
 export default function TechnicianPerformanceComponent() {
   const [performances, setPerformances] = useState<TechnicianPerformance[]>([])
   const [loading, setLoading] = useState(true)
+  const [assignments, setAssignments] = useState<Record<string, Assignment[]>>({})
+  const [expandedTechnicians, setExpandedTechnicians] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchPerformance()
   }, [])
+
+  useEffect(() => {
+    // Fetch assignments for each technician when performances are loaded
+    if (performances.length > 0) {
+      fetchAllAssignments()
+    }
+  }, [performances])
 
   const fetchPerformance = async () => {
     try {
@@ -51,6 +72,35 @@ export default function TechnicianPerformanceComponent() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchAllAssignments = async () => {
+    const assignmentsMap: Record<string, Assignment[]> = {}
+    
+    for (const perf of performances) {
+      try {
+        const response = await fetch(`/api/technicians/${perf.technician_id}/assignments`)
+        if (response.ok) {
+          const data = await response.json()
+          assignmentsMap[perf.technician_id] = data
+        }
+      } catch (error) {
+        console.error(`Error fetching assignments for ${perf.technician_name}:`, error)
+        assignmentsMap[perf.technician_id] = []
+      }
+    }
+    
+    setAssignments(assignmentsMap)
+  }
+
+  const toggleTechnicianExpanded = (technicianId: string) => {
+    const newExpanded = new Set(expandedTechnicians)
+    if (newExpanded.has(technicianId)) {
+      newExpanded.delete(technicianId)
+    } else {
+      newExpanded.add(technicianId)
+    }
+    setExpandedTechnicians(newExpanded)
   }
 
   if (loading) {
@@ -161,6 +211,79 @@ export default function TechnicianPerformanceComponent() {
                 </div>
               </div>
             )}
+
+            {/* Assigned Tasks Section */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <button
+                onClick={() => toggleTechnicianExpanded(perf.technician_id)}
+                className="flex items-center justify-between w-full text-left mb-3 hover:text-primary transition-colors"
+              >
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Assigned Tasks ({assignments[perf.technician_id]?.length || 0})
+                </h4>
+                {expandedTechnicians.has(perf.technician_id) ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+              
+              {expandedTechnicians.has(perf.technician_id) && (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {assignments[perf.technician_id] && assignments[perf.technician_id].length > 0 ? (
+                    assignments[perf.technician_id].map((assignment) => (
+                      <div
+                        key={assignment.id}
+                        className="p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h5 className="font-medium text-sm text-foreground truncate">
+                                {assignment.incident_title}
+                              </h5>
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${
+                                  assignment.status === "completed"
+                                    ? "bg-green-100 text-green-700"
+                                    : assignment.status === "in-progress"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {assignment.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{assignment.location}</span>
+                              </div>
+                              <span className="px-2 py-0.5 bg-primary/10 text-primary rounded">
+                                {assignment.category}
+                              </span>
+                              {assignment.priority >= 4 && (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">
+                                  {assignment.priority_label}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Scheduled: {new Date(assignment.scheduled_time).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No assigned tasks
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Feedback Statistics - Always show section */}
             <div className="mt-4 pt-4 border-t border-border">
