@@ -60,12 +60,13 @@ export async function PATCH(
 
     // Send notifications based on updates
     try {
-      if (body.status === "resolved") {
+      // Notify user when incident is resolved
+      if (body.status === "resolved" && oldIncident?.status !== "resolved") {
         await notifyIssueResolved(incident.user_id, id, incident.title)
       }
       
+      // Notify technician when assigned
       if (body.assigned_to && body.assigned_to !== oldIncident?.assigned_to) {
-        // Get technician info for notification
         const technicianId = body.assigned_to
         await notifyTechnicianAssignment(
           technicianId,
@@ -73,6 +74,17 @@ export async function PATCH(
           incident.title,
           incident.location
         )
+      }
+      
+      // Notify user when status changes to in-progress (if not already)
+      if (body.status === "in-progress" && oldIncident?.status !== "in-progress" && !body.assigned_to) {
+        const { createNotification } = await import("@/lib/services/notification.service")
+        await createNotification({
+          user_id: incident.user_id,
+          type: "technician_assigned",
+          message: `Your incident "${incident.title}" is now being processed.`,
+          metadata: { incident_id: id },
+        })
       }
     } catch (notifError) {
       console.error("Failed to send notification:", notifError)

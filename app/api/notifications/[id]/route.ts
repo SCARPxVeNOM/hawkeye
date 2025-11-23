@@ -14,21 +14,18 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
 
-    if (body.action === "mark-all-read") {
-      // Mark all as read for a user
-      const userId = body.userId
-      if (!userId) {
-        return Response.json({ error: "User ID is required" }, { status: 400 })
-      }
-      await markAllNotificationsAsRead(userId)
-      return Response.json({ message: "All notifications marked as read" })
-    } else {
-      // Mark single notification as read
+    // Mark single notification as read
+    if (body.action === "mark-read" || !body.action) {
       await markNotificationAsRead(id)
       return Response.json({ message: "Notification marked as read" })
+    } else {
+      return Response.json({ error: "Invalid action" }, { status: 400 })
     }
   } catch (error: any) {
     console.error("Error updating notification:", error)
+    if (error.message?.includes("Invalid notification ID")) {
+      return Response.json({ error: error.message }, { status: 400 })
+    }
     return Response.json({ error: error.message || "Failed to update notification" }, { status: 500 })
   }
 }

@@ -182,11 +182,64 @@ export async function createSchedule(
   // Update technician assignment count
   await updateTechnicianAssignmentCount(data.technician_id, 1)
 
+  // Send notification to technician
+  try {
+    const { notifyTechnicianAssignment } = await import("./notification.service")
+    const { getIncidentById } = await import("./incident.service")
+    const incident = await getIncidentById(data.incident_id)
+    
+    if (incident) {
+      await notifyTechnicianAssignment(
+        data.technician_id,
+        data.incident_id,
+        incident.title,
+        incident.location
+      )
+    }
+  } catch (notifError) {
+    console.error("Failed to send notification to technician:", notifError)
+    // Don't fail the schedule creation if notification fails
+  }
+
   return {
     id: result.insertedId.toString(),
     ...schedule,
     scheduled_time: scheduledTime.toISOString(),
     created_at: schedule.created_at.toISOString(),
+  }
+}
+
+/**
+ * Get a schedule by ID
+ */
+export async function getScheduleById(scheduleId: string): Promise<TechnicianSchedule | null> {
+  if (!ObjectId.isValid(scheduleId)) {
+    return null
+  }
+
+  const db = await getDb()
+  const scheduleCollection = db.collection("technician_schedule")
+
+  const schedule = await scheduleCollection.findOne({
+    _id: new ObjectId(scheduleId),
+  })
+
+  if (!schedule) {
+    return null
+  }
+
+  return {
+    id: schedule._id.toString(),
+    technician_id: schedule.technician_id,
+    incident_id: schedule.incident_id,
+    scheduled_time: schedule.scheduled_time instanceof Date
+      ? schedule.scheduled_time.toISOString()
+      : schedule.scheduled_time,
+    duration_minutes: schedule.duration_minutes,
+    status: schedule.status,
+    created_at: schedule.created_at instanceof Date
+      ? schedule.created_at.toISOString()
+      : schedule.created_at,
   }
 }
 

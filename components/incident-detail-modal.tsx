@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { X, MapPin, Calendar, User, AlertCircle, Image as ImageIcon } from "lucide-react"
 import IncidentUpdates from "@/components/incident-updates"
+import TechnicianFeedbackForm from "@/components/technician-feedback-form"
 
 interface Incident {
   id: string
@@ -31,11 +33,23 @@ interface IncidentDetailModalProps {
 }
 
 export default function IncidentDetailModal({ incidentId, isOpen, onClose }: IncidentDetailModalProps) {
+  const { data: session } = useSession()
   const [incident, setIncident] = useState<Incident | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
+    // Get user ID - prioritize session (OAuth) over localStorage (email/password)
+    if (session?.user?.id) {
+      setUserId(session.user.id)
+    } else if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}")
+      if (userData.id) {
+        setUserId(userData.id)
+      }
+    }
+
     if (isOpen && incidentId) {
       fetchIncidentDetails()
     } else if (!isOpen) {
@@ -43,7 +57,7 @@ export default function IncidentDetailModal({ incidentId, isOpen, onClose }: Inc
       setIncident(null)
       setError("")
     }
-  }, [isOpen, incidentId])
+  }, [isOpen, incidentId, session])
 
   const fetchIncidentDetails = async () => {
     if (!incidentId) return
@@ -223,6 +237,23 @@ export default function IncidentDetailModal({ incidentId, isOpen, onClose }: Inc
               <div className="pt-6 border-t">
                 <IncidentUpdates incidentId={incident.id!} />
               </div>
+
+              {/* Feedback Form - Show only if resolved and user is the owner */}
+              {incident.status === "resolved" && 
+               userId && 
+               incident.user_id === userId && (
+                <div className="pt-6 border-t">
+                  <TechnicianFeedbackForm
+                    incidentId={incident.id!}
+                    technicianId={incident.assigned_to || null}
+                    userId={userId}
+                    onSuccess={() => {
+                      // Refresh incident details to show updated feedback
+                      fetchIncidentDetails()
+                    }}
+                  />
+                </div>
+              )}
             </>
           ) : null}
         </CardContent>

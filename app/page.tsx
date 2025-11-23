@@ -12,8 +12,8 @@ export default function Home() {
       <Card className="w-full max-w-md p-8 shadow-lg">
         <div className="space-y-6">
           <div className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold text-primary">Campus Complaint</h1>
-            <h2 className="text-3xl font-bold text-primary">Management System</h2>
+            <h1 className="text-3xl font-bold text-primary">Smart Mantainance,</h1>
+            <h2 className="text-3xl font-bold text-primary">Incident Tracking & Prediction System</h2>
             <p className="text-muted-foreground mt-2">Report issues and track resolutions in real-time</p>
           </div>
 

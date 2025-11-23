@@ -38,41 +38,28 @@ export default function TechnicianScheduler() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [selectedTechnicians, setSelectedTechnicians] = useState<Record<string, string>>({})
-  const [technicians, setTechnicians] = useState<Technician[]>([
-    {
-      id: "1",
-      name: "John Smith",
-      specialization: "Electrical",
-      active: true,
-      available: true,
-      current_assignments: 0,
-      max_concurrent: 2,
-    },
-    {
-      id: "2",
-      name: "Sarah Johnson",
-      specialization: "Plumbing",
-      active: true,
-      available: true,
-      current_assignments: 1,
-      max_concurrent: 2,
-    },
-    {
-      id: "3",
-      name: "Mike Davis",
-      specialization: "HVAC",
-      active: true,
-      available: false,
-      current_assignments: 2,
-      max_concurrent: 2,
-    },
-  ])
+  const [technicians, setTechnicians] = useState<Technician[]>([])
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("technician_assignments") || "[]")
     setAssignments(stored)
     fetchIncidents()
+    fetchTechnicians()
   }, [])
+
+  const fetchTechnicians = async () => {
+    try {
+      const response = await fetch("/api/technicians")
+      if (response.ok) {
+        const data = await response.json()
+        setTechnicians(data)
+      } else {
+        console.error("Failed to fetch technicians")
+      }
+    } catch (error) {
+      console.error("Error fetching technicians:", error)
+    }
+  }
 
   const fetchIncidents = async () => {
     try {

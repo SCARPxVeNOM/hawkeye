@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
-import { MapPin, Calendar, ArrowRight, FileText } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { MapPin, Calendar, ArrowRight, FileText, Star, CheckCircle2 } from "lucide-react"
 import IncidentDetailModal from "@/components/incident-detail-modal"
 import IncidentUpdates from "@/components/incident-updates"
+import TechnicianFeedbackForm from "@/components/technician-feedback-form"
 
 interface Incident {
   id: string
@@ -15,6 +18,8 @@ interface Incident {
   priority: number
   created_at: string
   image_url?: string
+  user_id?: string
+  assigned_to?: string | null
 }
 
 interface IncidentListProps {
@@ -23,31 +28,108 @@ interface IncidentListProps {
 }
 
 export default function IncidentList({ userOnly = false, showUpdates = false }: IncidentListProps) {
+  const { data: session } = useSession()
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [filter, setFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [feedbackIncidentId, setFeedbackIncidentId] = useState<string | null>(null)
+  const [feedbackStatus, setFeedbackStatus] = useState<Record<string, boolean>>({})
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchIncidents()
-  }, [userOnly])
+    // Get user ID - prioritize session (OAuth) over localStorage
+    if (session?.user?.id) {
+      console.log("User ID from session:", session.user.id, "Type:", typeof session.user.id)
+      setUserId(String(session.user.id))
+    } else if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}")
+      if (userData.id) {
+        console.log("User ID from localStorage:", userData.id, "Type:", typeof userData.id)
+        setUserId(String(userData.id))
+      } else {
+        console.warn("No user ID found in session or localStorage")
+      }
+    }
+  }, [session])
+
+  useEffect(() => {
+    // Fetch incidents when userOnly or userId changes
+    if (userId || !userOnly) {
+      fetchIncidents()
+    }
+  }, [userOnly, userId, session])
+
+  useEffect(() => {
+    // Check feedback status for resolved incidents
+    if (userId && incidents.length > 0) {
+      checkFeedbackStatus()
+    }
+  }, [incidents, userId])
+
+  const checkFeedbackStatus = async () => {
+    if (!userId) return
+    
+    const normalizedUserId = String(userId)
+    const resolvedIncidents = incidents.filter(
+      (inc) => {
+        const normalizedIncUserId = inc.user_id ? String(inc.user_id) : null
+        return (inc.status === "resolved" || inc.status === "closed") && normalizedIncUserId === normalizedUserId
+      }
+    )
+    
+    const statusMap: Record<string, boolean> = {}
+    for (const incident of resolvedIncidents) {
+      try {
+        const response = await fetch(`/api/feedback/${incident.id}`)
+        if (response.ok) {
+          statusMap[incident.id] = true
+        }
+      } catch (error) {
+        // No feedback exists
+        statusMap[incident.id] = false
+      }
+    }
+    setFeedbackStatus(statusMap)
+  }
 
   const fetchIncidents = async () => {
     try {
       setLoading(true)
-      // Get user ID if userOnly is true
-      const userData = JSON.parse(localStorage.getItem("user") || "{}")
-      const userId = userData.id
+      // Get user ID if userOnly is true - check both session and localStorage
+      let userIdForQuery = userId
+      if (!userIdForQuery && typeof window !== "undefined") {
+        // Try session first
+        if (session?.user?.id) {
+          userIdForQuery = session.user.id
+        } else {
+          // Fallback to localStorage
+          const userData = JSON.parse(localStorage.getItem("user") || "{}")
+          userIdForQuery = userData.id
+        }
+      }
 
       let url = "/api/incidents"
-      if (userOnly && userId) {
-        url += `?userId=${userId}`
+      if (userOnly && userIdForQuery) {
+        url += `?userId=${String(userIdForQuery)}`
+        console.log("Fetching incidents for user:", userIdForQuery)
+      } else if (userOnly) {
+        console.warn("userOnly is true but no userId available for filtering")
       }
 
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
+        console.log(`Fetched ${data.length} incidents. Sample incident:`, data[0] ? {
+          id: data[0].id,
+          title: data[0].title,
+          user_id: data[0].user_id,
+          user_id_type: typeof data[0].user_id,
+          assigned_to: data[0].assigned_to,
+          assigned_to_type: typeof data[0].assigned_to,
+          status: data[0].status,
+        } : "No incidents")
         setIncidents(data)
       } else {
         console.error("Failed to fetch incidents")
@@ -192,16 +274,96 @@ export default function IncidentList({ userOnly = false, showUpdates = false }: 
                     })}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedIncidentId(incident.id)
-                      setIsModalOpen(true)
-                    }}
-                    className="text-sm font-medium text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[-10px] group-hover:translate-x-0"
-                  >
-                    View Details <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Feedback Button - Show for resolved incidents owned by user */}
+                    {(() => {
+                      // Normalize IDs to strings for comparison
+                      const normalizedUserId = userId ? String(userId) : null
+                      const normalizedIncidentUserId = incident.user_id ? String(incident.user_id) : null
+                      
+                      // Debug logging
+                      const shouldShow = userOnly &&
+                        normalizedUserId &&
+                        normalizedIncidentUserId === normalizedUserId &&
+                        (incident.status === "resolved" || incident.status === "closed") &&
+                        incident.assigned_to
+                      
+                      if (!shouldShow && userOnly && (incident.status === "resolved" || incident.status === "closed")) {
+                        // Only log for resolved/closed incidents to reduce noise
+                        console.log(`Feedback button hidden for incident ${incident.id} (${incident.title}):`, {
+                          userOnly,
+                          hasUserId: !!normalizedUserId,
+                          userIdMatches: normalizedIncidentUserId === normalizedUserId,
+                          incidentUserId: normalizedIncidentUserId,
+                          currentUserId: normalizedUserId,
+                          status: incident.status,
+                          hasAssignedTo: !!incident.assigned_to,
+                          assignedTo: incident.assigned_to,
+                          reason: !userOnly ? "Not userOnly view" :
+                                  !normalizedUserId ? "No userId" :
+                                  normalizedIncidentUserId !== normalizedUserId ? "User ID mismatch" :
+                                  !(incident.status === "resolved" || incident.status === "closed") ? "Not resolved/closed" :
+                                  !incident.assigned_to ? "No technician assigned" : "Unknown"
+                        })
+                      }
+                      
+                      return shouldShow ? (
+                        <Button
+                          size="sm"
+                          variant={feedbackStatus[incident.id] ? "outline" : "default"}
+                          onClick={() => {
+                            if (feedbackIncidentId === incident.id) {
+                              setFeedbackIncidentId(null)
+                            } else {
+                              setFeedbackIncidentId(incident.id)
+                            }
+                          }}
+                          className="flex items-center gap-1"
+                        >
+                          {feedbackStatus[incident.id] ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              Feedback Given
+                            </>
+                          ) : (
+                            <>
+                              <Star className="w-4 h-4" />
+                              Give Feedback
+                            </>
+                          )}
+                        </Button>
+                      ) : null
+                    })()}
+
+                    <button
+                      onClick={() => {
+                        setSelectedIncidentId(incident.id)
+                        setIsModalOpen(true)
+                      }}
+                      className="text-sm font-medium text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[-10px] group-hover:translate-x-0"
+                    >
+                      View Details <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Feedback Form - Show inline for this incident */}
+                {feedbackIncidentId === incident.id &&
+                 userId &&
+                 incident.assigned_to && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <TechnicianFeedbackForm
+                      incidentId={incident.id}
+                      technicianId={incident.assigned_to}
+                      userId={userId}
+                      onSuccess={() => {
+                        setFeedbackStatus((prev) => ({ ...prev, [incident.id]: true }))
+                        setFeedbackIncidentId(null)
+                        fetchIncidents() // Refresh to update status
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ))

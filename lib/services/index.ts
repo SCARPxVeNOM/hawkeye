@@ -60,6 +60,7 @@ export {
   getTechnicians,
   getTechnicianById,
   createSchedule,
+  getScheduleById,
   getTechnicianSchedules,
   updateScheduleStatus,
   findAvailableTechnicians,
@@ -69,4 +70,14 @@ export {
   type TechnicianSchedule,
   type CreateScheduleData,
 } from "./technician.service"
+
+// Feedback Service
+export {
+  createFeedback,
+  getTechnicianFeedback,
+  getIncidentFeedback,
+  getTechnicianFeedbackStats,
+  type TechnicianFeedback,
+  type CreateFeedbackData,
+} from "./feedback.service"
 

@@ -17,6 +17,11 @@ export default function SLAMonitor() {
 
   useEffect(() => {
     fetchIncidents()
+    // Auto-refresh every 30 seconds to update SLA status
+    const interval = setInterval(() => {
+      fetchIncidents()
+    }, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchIncidents = async () => {
@@ -77,14 +82,40 @@ export default function SLAMonitor() {
     }
   }
 
+  const triggerEscalationCheck = async () => {
+    try {
+      const response = await fetch("/api/escalation/check", {
+        method: "POST",
+      })
+      if (response.ok) {
+        const data = await response.json()
+        alert(`SLA Check Complete: ${data.message}`)
+        fetchIncidents() // Refresh after escalation check
+      } else {
+        alert("Failed to check SLA escalations")
+      }
+    } catch (error) {
+      console.error("Error triggering escalation check:", error)
+      alert("Error checking SLA escalations")
+    }
+  }
+
   return (
     <Card>
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-foreground">SLA Monitoring</h2>
-          <span className="text-xs text-muted-foreground border border-border px-2 py-1 rounded-md">
-            Target: 15 min
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground border border-border px-2 py-1 rounded-md">
+              Target: 15 min
+            </span>
+            <button
+              onClick={triggerEscalationCheck}
+              className="text-xs px-3 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Check Escalations
+            </button>
+          </div>
         </div>
 
         <div className="space-y-3">

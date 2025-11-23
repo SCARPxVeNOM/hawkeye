@@ -65,7 +65,12 @@ export default function LoginPage() {
 
           <Button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            onClick={() => {
+              signIn("google", { callbackUrl: "/dashboard" }).catch((error) => {
+                console.error("Google sign in error:", error)
+                setError("Google sign in failed. Please check if Google OAuth is configured in .env.local or use email/password login.")
+              })
+            }}
             variant="outline"
             className="w-full"
           >

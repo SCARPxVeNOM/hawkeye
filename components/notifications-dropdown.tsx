@@ -122,7 +122,7 @@ export default function NotificationsDropdown({ userId }: NotificationsDropdownP
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-semibold">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -131,65 +131,72 @@ export default function NotificationsDropdown({ userId }: NotificationsDropdownP
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[100]"
             onClick={() => setIsOpen(false)}
           />
-          <Card className="absolute right-0 top-12 w-96 max-h-[500px] overflow-y-auto z-50 shadow-lg">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold">Notifications</h3>
-              {unreadNotifications.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={markAllAsRead}
-                  className="text-xs"
-                >
-                  Mark all read
-                </Button>
-              )}
-            </div>
-
-            <div className="divide-y divide-border">
-              {loading ? (
-                <div className="p-8 text-center text-muted-foreground">Loading...</div>
-              ) : notifications.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  No notifications
-                </div>
-              ) : (
-                notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 hover:bg-muted/50 transition-colors ${
-                      !notification.read ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
-                    }`}
+          <div className="absolute right-0 top-full mt-2 z-[101]">
+            <Card className="w-96 max-w-[calc(100vw-2rem)] max-h-[500px] overflow-hidden shadow-xl border border-border bg-background">
+              <div className="p-4 border-b border-border flex items-center justify-between bg-card">
+                <h3 className="font-semibold text-foreground">Notifications</h3>
+                {unreadNotifications.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={markAllAsRead}
+                    className="text-xs h-7"
                   >
-                    <div className="flex items-start gap-3">
-                      {getNotificationIcon(notification.type)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(notification.created_at).toLocaleString()}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => markAsRead(notification.id)}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
+                    Mark all read
+                  </Button>
+                )}
+              </div>
+
+              <div className="divide-y divide-border overflow-y-auto max-h-[450px]">
+                {loading ? (
+                  <div className="p-8 text-center text-muted-foreground">Loading...</div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No notifications
                   </div>
-                ))
-              )}
-            </div>
-          </Card>
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 hover:bg-muted/50 transition-colors cursor-pointer ${
+                        !notification.read ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex-shrink-0">
+                          {getNotificationIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground break-words">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(notification.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              markAsRead(notification.id)
+                            }}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
         </>
       )}
     </div>

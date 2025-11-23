@@ -43,8 +43,8 @@ export default function DashboardPage() {
               <Activity className="h-6 w-6 text-secondary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Campus Complaint System</h1>
-              <p className="text-sm text-primary-foreground/70">Student & Staff Portal</p>
+              <h1 className="text-2xl font-bold tracking-tight">Smart Mantainance System,</h1>
+              <p className="text-sm text-primary-foreground/70">Incident Tracking & Prediction System</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

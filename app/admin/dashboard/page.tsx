@@ -48,6 +48,19 @@ export default function AdminDashboardPage() {
         setAdminUserId(adminUser.id)
       }
     }
+
+    // Auto-check SLA escalations every 2 minutes
+    const escalationInterval = setInterval(async () => {
+      try {
+        await fetch("/api/escalation/check", { method: "POST" })
+        // Refresh incidents after escalation check
+        fetchIncidents()
+      } catch (error) {
+        console.error("Error in automatic SLA check:", error)
+      }
+    }, 120000) // 2 minutes
+
+    return () => clearInterval(escalationInterval)
   }, [])
 
   const fetchIncidents = async () => {

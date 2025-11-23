@@ -7,9 +7,20 @@ if (!process.env.MONGODB_URI) {
 const uri: string = process.env.MONGODB_URI
 const dbName: string = process.env.MONGODB_DB_NAME || 'incident_reporting'
 
-// MongoDB connection options - using minimal options that work
-// (init-db.js works without explicit options, so we'll keep it simple)
-const options: MongoClientOptions = {}
+// MongoDB connection options with SSL/TLS configuration
+// Required for MongoDB Atlas connections, especially on Windows
+const options: MongoClientOptions = {
+  tls: true,
+  tlsAllowInvalidCertificates: false,
+  tlsAllowInvalidHostnames: false,
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 60000,
+  connectTimeoutMS: 30000,
+  retryWrites: true,
+  retryReads: true,
+  maxPoolSize: 10,
+  minPoolSize: 1,
+}
 
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
@@ -100,6 +111,14 @@ async function initializeCollections(db: Db) {
     if (!collectionNames.includes('rate_limits')) {
       await db.collection('rate_limits').createIndex({ user_id: 1, window_start: 1 })
       await db.collection('rate_limits').createIndex({ window_end: 1 }, { expireAfterSeconds: 86400 }) // TTL index
+    }
+
+    if (!collectionNames.includes('technician_feedback')) {
+      await db.collection('technician_feedback').createIndex({ incident_id: 1 })
+      await db.collection('technician_feedback').createIndex({ technician_id: 1 })
+      await db.collection('technician_feedback').createIndex({ user_id: 1 })
+      await db.collection('technician_feedback').createIndex({ created_at: -1 })
+      await db.collection('technician_feedback').createIndex({ incident_id: 1, user_id: 1 }, { unique: true })
     }
   } catch (error) {
     // Silently fail - collections might already exist with indexes

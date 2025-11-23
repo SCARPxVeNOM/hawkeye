@@ -13,13 +13,20 @@ import {
   AlertCircle,
   User,
   Settings,
+  Bell,
 } from "lucide-react"
+import NotificationsDropdown from "@/components/notifications-dropdown"
 
 interface Assignment {
   id: string
   incident_id: string
   incident_title: string
+  description?: string
+  category?: string
   location: string
+  priority?: number
+  priority_label?: string
+  created_at?: string
   scheduled_time: string
   status: string
 }
@@ -97,10 +104,13 @@ export default function TechnicianDashboardPage() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-3">
+              {user?.id && <NotificationsDropdown userId={user.id} />}
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -163,15 +173,52 @@ export default function TechnicianDashboardPage() {
                     key={assignment.id}
                     className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground mb-1">{assignment.incident_title}</h3>
-                        <p className="text-sm text-muted-foreground mb-2">{assignment.location}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Scheduled: {new Date(assignment.scheduled_time).toLocaleString()}
-                        </p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-foreground mb-1">{assignment.incident_title}</h3>
+                            {assignment.description && (
+                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{assignment.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">Location:</span>
+                            <span>{assignment.location}</span>
+                          </div>
+                          {assignment.category && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Category:</span>
+                              <span className="px-2 py-0.5 bg-primary/10 text-primary rounded">{assignment.category}</span>
+                            </div>
+                          )}
+                          {assignment.priority_label && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Priority:</span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                assignment.priority === 5 || assignment.priority === 4 ? "bg-red-100 text-red-700" :
+                                assignment.priority === 3 ? "bg-yellow-100 text-yellow-700" :
+                                "bg-green-100 text-green-700"
+                              }`}>
+                                {assignment.priority_label}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
+                          {assignment.created_at && (
+                            <div>
+                              <span className="font-medium">Created:</span> {new Date(assignment.created_at).toLocaleString()}
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium">Scheduled:</span> {new Date(assignment.scheduled_time).toLocaleString()}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-shrink-0">
                         {assignment.status === "scheduled" && (
                           <Button
                             size="sm"
@@ -213,7 +260,12 @@ export default function TechnicianDashboardPage() {
                     className="p-4 border border-border rounded-lg bg-muted/30"
                   >
                     <h3 className="font-semibold text-foreground mb-1">{assignment.incident_title}</h3>
-                    <p className="text-sm text-muted-foreground">{assignment.location}</p>
+                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-2">
+                      <span>{assignment.location}</span>
+                      {assignment.category && (
+                        <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">{assignment.category}</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

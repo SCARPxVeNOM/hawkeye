@@ -6,6 +6,7 @@
 import { getDb } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getIncidents } from "./incident.service"
+import { getTechnicianFeedbackStats } from "./feedback.service"
 
 export interface TechnicianPerformance {
   technician_id: string
@@ -19,6 +20,11 @@ export interface TechnicianPerformance {
   on_time_completions: number
   overdue_completions: number
   category_breakdown: Record<string, number>
+  feedback_stats?: {
+    total_feedback: number
+    average_rating: number
+    rating_distribution: { 1: number; 2: number; 3: number; 4: number; 5: number }
+  }
 }
 
 const SLA_MINUTES = 15 // SLA requirement in minutes
@@ -122,6 +128,21 @@ export async function calculateTechnicianPerformance(
       ? Math.round((onTimeCompletions / totalAssignments) * 100)
       : 100
 
+  // Get feedback statistics
+  let feedbackStats
+  try {
+    feedbackStats = await getTechnicianFeedbackStats(technicianId)
+    console.log(`Feedback stats for technician ${technicianId}:`, feedbackStats)
+  } catch (error) {
+    console.error(`Error fetching feedback stats for technician ${technicianId}:`, error)
+    // Return default stats if there's an error
+    feedbackStats = {
+      total_feedback: 0,
+      average_rating: 0,
+      rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    }
+  }
+
   return {
     technician_id: technicianId,
     technician_name: technician.name,
@@ -134,6 +155,7 @@ export async function calculateTechnicianPerformance(
     on_time_completions: onTimeCompletions,
     overdue_completions: overdueCompletions,
     category_breakdown: categoryBreakdown,
+    feedback_stats: feedbackStats,
   }
 }
 

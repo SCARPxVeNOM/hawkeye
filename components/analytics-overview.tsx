@@ -22,9 +22,23 @@ export default function AnalyticsOverview() {
       if (response.ok) {
         const incidents = await response.json()
 
+        // Debug: Log status distribution
+        const statusCounts = incidents.reduce((acc: any, i: any) => {
+          acc[i.status] = (acc[i.status] || 0) + 1
+          return acc
+        }, {})
+        console.log("Incident status distribution:", statusCounts)
+
         const total = incidents.length
-        const active = incidents.filter((i: any) => i.status === "in-progress" || i.status === "new").length
-        const resolved = incidents.filter((i: any) => i.status === "resolved").length
+        const active = incidents.filter((i: any) => 
+          i.status === "in-progress" || 
+          i.status === "new" ||
+          i.status === "in_progress" // Handle both formats
+        ).length
+        const resolved = incidents.filter((i: any) => 
+          i.status === "resolved" || 
+          i.status === "closed" // Also count closed as resolved
+        ).length
 
         setStats({
           total,
@@ -36,8 +50,15 @@ export default function AnalyticsOverview() {
         // Fallback to localStorage
         const incidents = JSON.parse(localStorage.getItem("incidents") || "[]")
         const total = incidents.length
-        const active = incidents.filter((i: any) => i.status === "in-progress" || i.status === "new").length
-        const resolved = incidents.filter((i: any) => i.status === "resolved").length
+        const active = incidents.filter((i: any) => 
+          i.status === "in-progress" || 
+          i.status === "new" ||
+          i.status === "in_progress"
+        ).length
+        const resolved = incidents.filter((i: any) => 
+          i.status === "resolved" || 
+          i.status === "closed"
+        ).length
 
         setStats({
           total,
@@ -51,8 +72,15 @@ export default function AnalyticsOverview() {
       // Fallback to localStorage
       const incidents = JSON.parse(localStorage.getItem("incidents") || "[]")
       const total = incidents.length
-      const active = incidents.filter((i: any) => i.status === "in-progress" || i.status === "new").length
-      const resolved = incidents.filter((i: any) => i.status === "resolved").length
+      const active = incidents.filter((i: any) => 
+        i.status === "in-progress" || 
+        i.status === "new" ||
+        i.status === "in_progress"
+      ).length
+      const resolved = incidents.filter((i: any) => 
+        i.status === "resolved" || 
+        i.status === "closed"
+      ).length
 
       setStats({
         total,

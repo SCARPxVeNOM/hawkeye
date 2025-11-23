@@ -56,9 +56,22 @@ export interface UpdateIncidentData {
  * Format incident from MongoDB document to API response
  */
 function formatIncident(incident: any): Incident {
+  // Ensure user_id and assigned_to are strings for consistent comparison
+  const userId = incident.user_id 
+    ? (typeof incident.user_id === 'object' && incident.user_id.toString 
+        ? incident.user_id.toString() 
+        : String(incident.user_id))
+    : incident.user_id
+  
+  const assignedTo = incident.assigned_to 
+    ? (typeof incident.assigned_to === 'object' && incident.assigned_to.toString 
+        ? incident.assigned_to.toString() 
+        : String(incident.assigned_to))
+    : incident.assigned_to
+
   return {
     id: incident._id.toString(),
-    user_id: incident.user_id,
+    user_id: userId,
     title: incident.title,
     category: incident.category,
     description: incident.description,
@@ -68,7 +81,7 @@ function formatIncident(incident: any): Incident {
     longitude: incident.longitude,
     status: incident.status,
     priority: incident.priority,
-    assigned_to: incident.assigned_to,
+    assigned_to: assignedTo,
     created_at: incident.created_at instanceof Date 
       ? incident.created_at.toISOString() 
       : incident.created_at,

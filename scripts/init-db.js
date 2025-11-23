@@ -58,9 +58,18 @@ async function initializeDatabase() {
     await db.collection('notifications').createIndex({ created_at: -1 });
     console.log('✓ Notifications collection ready');
 
+    // Create Technician Feedback collection with indexes
+    console.log('Creating technician_feedback collection...');
+    await db.collection('technician_feedback').createIndex({ incident_id: 1 });
+    await db.collection('technician_feedback').createIndex({ technician_id: 1 });
+    await db.collection('technician_feedback').createIndex({ user_id: 1 });
+    await db.collection('technician_feedback').createIndex({ created_at: -1 });
+    await db.collection('technician_feedback').createIndex({ incident_id: 1, user_id: 1 }, { unique: true });
+    console.log('✓ Technician feedback collection ready');
+
     console.log('\n✅ Database initialized successfully!');
     console.log(`Database: ${dbName}`);
-    console.log('Collections created: users, incidents, incident_updates, technician_schedule, predictions, notifications');
+    console.log('Collections created: users, incidents, incident_updates, technician_schedule, predictions, notifications, technician_feedback');
 
   } catch (error) {
     console.error('❌ Error initializing database:', error.message);

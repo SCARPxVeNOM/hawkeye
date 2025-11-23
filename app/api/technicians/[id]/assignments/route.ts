@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server"
 import { getTechnicianSchedules } from "@/lib/services/technician.service"
-import { getIncidentById } from "@/lib/services/incident.service"
+import { getIncidentById, getIncidents } from "@/lib/services/incident.service"
+import { getPriorityLabel } from "@/lib/services/priority.service"
+import { getDb } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 // GET /api/technicians/[id]/assignments - Get assignments for a technician
 export async function GET(
@@ -9,24 +12,67 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    
+    // Get assignments from schedule collection
     const schedules = await getTechnicianSchedules(id)
-
-    // Enrich with incident details
-    const assignments = await Promise.all(
+    
+    // Also get incidents directly assigned to this technician (via assigned_to field)
+    const assignedIncidents = await getIncidents({ assignedTo: id })
+    
+    // Create a map to track which incidents already have schedules
+    const scheduledIncidentIds = new Set(schedules.map(s => s.incident_id))
+    
+    // Enrich schedules with incident details
+    const scheduleAssignments = await Promise.all(
       schedules.map(async (schedule) => {
         const incident = await getIncidentById(schedule.incident_id)
+        const priorityNum = incident?.priority || 3
         return {
           id: schedule.id,
           incident_id: schedule.incident_id,
           incident_title: incident?.title || "Unknown",
+          description: incident?.description || "",
+          category: incident?.category || "",
           location: incident?.location || "Unknown",
+          priority: priorityNum,
+          priority_label: getPriorityLabel(priorityNum),
+          created_at: incident?.created_at || new Date().toISOString(),
           scheduled_time: schedule.scheduled_time,
           status: schedule.status,
         }
       })
     )
+    
+    // Convert assigned incidents (without schedules) to assignment format
+    const directAssignments = assignedIncidents
+      .filter(incident => !scheduledIncidentIds.has(incident.id!))
+      .map(incident => {
+        const priorityNum = incident.priority || 3
+        return {
+          id: `direct-${incident.id}`, // Use a prefix to distinguish from schedule IDs
+          incident_id: incident.id!,
+          incident_title: incident.title,
+          description: incident.description || "",
+          category: incident.category || "",
+          location: incident.location,
+          priority: priorityNum,
+          priority_label: getPriorityLabel(priorityNum),
+          created_at: incident.created_at || new Date().toISOString(),
+          scheduled_time: new Date().toISOString(), // Use current time if no schedule
+          status: incident.status === "resolved" ? "completed" : 
+                  incident.status === "in-progress" ? "in-progress" : "scheduled",
+        }
+      })
+    
+    // Combine both types of assignments
+    const allAssignments = [...scheduleAssignments, ...directAssignments]
+    
+    // Sort by scheduled_time
+    allAssignments.sort((a, b) => 
+      new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime()
+    )
 
-    return Response.json(assignments)
+    return Response.json(allAssignments)
   } catch (error: any) {
     console.error("Error fetching technician assignments:", error)
     return Response.json(

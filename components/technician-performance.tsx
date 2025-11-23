@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { CheckCircle2, Clock, AlertTriangle, TrendingUp } from "lucide-react"
+import { CheckCircle2, Clock, AlertTriangle, TrendingUp, Star } from "lucide-react"
 
 interface TechnicianPerformance {
   technician_id: string
@@ -16,6 +16,11 @@ interface TechnicianPerformance {
   on_time_completions: number
   overdue_completions: number
   category_breakdown: Record<string, number>
+  feedback_stats?: {
+    total_feedback: number
+    average_rating: number
+    rating_distribution: { 1: number; 2: number; 3: number; 4: number; 5: number }
+  }
 }
 
 export default function TechnicianPerformanceComponent() {
@@ -32,7 +37,14 @@ export default function TechnicianPerformanceComponent() {
       const response = await fetch("/api/technicians/performance")
       if (response.ok) {
         const data = await response.json()
+        console.log("Technician Performance Data:", data)
+        // Log feedback stats for debugging
+        data.forEach((perf: any) => {
+          console.log(`${perf.technician_name} - Feedback Stats:`, perf.feedback_stats)
+        })
         setPerformances(data)
+      } else {
+        console.error("Failed to fetch performance data:", response.status, response.statusText)
       }
     } catch (error) {
       console.error("Error fetching technician performance:", error)
@@ -149,6 +161,72 @@ export default function TechnicianPerformanceComponent() {
                 </div>
               </div>
             )}
+
+            {/* Feedback Statistics - Always show section */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-500" />
+                Student Feedback
+              </h4>
+              {perf.feedback_stats && perf.feedback_stats.total_feedback > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Average Rating</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${
+                              star <= Math.round(perf.feedback_stats!.average_rating)
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="font-semibold text-foreground">
+                        {perf.feedback_stats.average_rating.toFixed(1)}/5.0
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total Feedback</span>
+                    <span className="font-medium">{perf.feedback_stats.total_feedback} reviews</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Rating Distribution</p>
+                    {[5, 4, 3, 2, 1].map((rating) => {
+                      const count = perf.feedback_stats!.rating_distribution[rating as keyof typeof perf.feedback_stats.rating_distribution]
+                      const percentage = perf.feedback_stats!.total_feedback > 0
+                        ? (count / perf.feedback_stats!.total_feedback) * 100
+                        : 0
+                      return (
+                        <div key={rating} className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 w-16">
+                            <span className="text-xs font-medium w-4">{rating}</span>
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          </div>
+                          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full bg-yellow-400 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground">
+                    No feedback received yet
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}

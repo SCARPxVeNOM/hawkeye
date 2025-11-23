@@ -14,9 +14,14 @@ const SLA_MINUTES = 15
  * Check for SLA breaches and escalate
  */
 export async function checkAndEscalateSLA(): Promise<number> {
-  const incidents = await getIncidents({
+  // Check both "new" and "in-progress" incidents that haven't been resolved
+  const newIncidents = await getIncidents({
     status: "new",
   })
+  const inProgressIncidents = await getIncidents({
+    status: "in-progress",
+  })
+  const incidents = [...newIncidents, ...inProgressIncidents]
 
   const now = new Date()
   let escalatedCount = 0
