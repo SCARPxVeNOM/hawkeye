@@ -1,9 +1,6 @@
-# Hawkeye - Campus Incident Reporting System
+# Hawkeye - Smart Incident Reporting System
 
 A comprehensive incident reporting and management system for campus facilities with technician scheduling, predictive analytics, and real-time notifications.
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/scarpxvenoms-projects/v0-incident-reporting-system)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/rDj919nB689)
 
 ## Overview
 
