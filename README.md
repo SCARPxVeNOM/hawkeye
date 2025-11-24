@@ -9,7 +9,7 @@
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![BentoML](https://img.shields.io/badge/ML-BentoML-FF6F61?style=for-the-badge)](https://www.bentoml.com/)
 
-[🚀 Live Demo](https://hawkeye-nu.vercel.app) • [📚 Documentation](https://documentation-zeta-eight.vercel.app/) • [🤖 ML API](https://failure-prediction-prod-0d460137.mt-guc1.bentoml.ai)
+[🚀 Live Demo](https://hawkeye-nu.vercel.app) • [📚 Documentation](https://documentation-zeta-eight.vercel.app/) • [🤖 ML API](https://failure-prediction-prod-0d460137.mt-guc1.bentoml.ai)• [DEMO VIDEO](https://youtu.be/4ANA8-waX6k)
 
 </div>
 
