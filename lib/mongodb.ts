@@ -7,17 +7,10 @@ if (!process.env.MONGODB_URI) {
 const uri: string = process.env.MONGODB_URI
 const dbName: string = process.env.MONGODB_DB_NAME || 'incident_reporting'
 
-// MongoDB connection options with SSL/TLS configuration
-// Adjusted for Vercel deployment compatibility
+// MongoDB connection options optimized for Vercel serverless functions
 const options: MongoClientOptions = {
-  // Let MongoDB driver handle TLS automatically based on connection string
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 60000,
-  connectTimeoutMS: 30000,
-  retryWrites: true,
-  retryReads: true,
+  // Minimal options - let driver handle defaults
   maxPoolSize: 10,
-  minPoolSize: 1,
 }
 
 let client: MongoClient
@@ -51,12 +44,22 @@ if (process.env.NODE_ENV === 'development') {
 // separate module, the client can be shared across functions.
 export default clientPromise
 
+// Track if collections have been initialized
+let collectionsInitialized = false
+
 export async function getDb(): Promise<Db> {
   const client = await clientPromise
   const db = client.db(dbName)
   
-  // Initialize collections and indexes on first connection
-  await initializeCollections(db)
+  // Initialize collections and indexes only once
+  if (!collectionsInitialized) {
+    // Don't await - initialize in background to avoid blocking
+    initializeCollections(db).then(() => {
+      collectionsInitialized = true
+    }).catch(err => {
+      console.error('Error initializing collections:', err)
+    })
+  }
   
   return db
 }
